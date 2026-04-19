@@ -1,121 +1,72 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.linear_model import LinearRegression
 
-# ----------------------------
-# TITLE
-# ----------------------------
-st.title("💰 Smart Expense Analyzer & Financial Health Predictor")
-st.markdown("Analyze your spending, visualize trends, and predict future expenses.")
+st.title("💰 Smart Expense Analyzer")
+st.write("Analyze your spending and get insights")
 
-st.write("---")
+st.write("----------------------------------------")
 
-# ----------------------------
-# LOAD DATA
-# ----------------------------
-df = pd.read_csv("data.csv")
+# Upload file
+file = st.file_uploader("Upload your expense CSV", type=["csv"])
 
-# ----------------------------
-# CATEGORIZATION
-# ----------------------------
-def categorize(desc):
-    desc = desc.lower()
-    
-    if "swiggy" in desc or "zomato" in desc or "restaurant" in desc or "groceries" in desc:
-        return "Food"
-    elif "uber" in desc or "metro" in desc or "bus" in desc or "flight" in desc:
-        return "Travel"
-    elif "amazon" in desc or "shopping" in desc:
-        return "Shopping"
-    elif "bill" in desc or "netflix" in desc:
-        return "Bills"
-    else:
-        return "Other"
+if file is not None:
 
-df["Category"] = df["Description"].apply(categorize)
+    df = pd.read_csv(file)
 
-# ----------------------------
-# SHOW DATA
-# ----------------------------
-st.subheader("📄 Categorized Expense Data")
-st.write(df)
+    st.subheader("Raw Data")
+    st.write(df)
 
-st.write("---")
+    st.write("----------------------------------------")
 
-# ----------------------------
-# CATEGORY CHART
-# ----------------------------
-st.subheader("📊 Spending by Category")
+    # Ensure correct format
+    df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce')
+    df['Date'] = pd.to_datetime(df['Date'])
 
-category_sum = df.groupby("Category")["Amount"].sum()
+    df['Month'] = df['Date'].dt.month_name()
 
-fig, ax = plt.subplots()
-category_sum.plot(kind="bar", ax=ax)
+    # 🔹 Category Analysis
+    st.subheader("📊 Spending by Category")
 
-st.pyplot(fig)
+    category_data = df.groupby('Category')['Amount'].sum()
 
-st.write("---")
+    fig1, ax1 = plt.subplots()
+    category_data.plot(kind='bar', ax=ax1)
+    st.pyplot(fig1)
 
-# ----------------------------
-# MONTHLY TREND
-# ----------------------------
-df["Date"] = pd.to_datetime(df["Date"])
-df["Month"] = df["Date"].dt.month
+    st.write("----------------------------------------")
 
-monthly = df.groupby("Month")["Amount"].sum()
+    # 🔹 Monthly Trend
+    st.subheader("📈 Monthly Spending Trend")
 
-st.subheader("📈 Monthly Spending Trend")
+    monthly_data = df.groupby('Month')['Amount'].sum()
 
-fig2, ax2 = plt.subplots()
-monthly.plot(marker='o', ax=ax2)
+    fig2, ax2 = plt.subplots()
+    monthly_data.plot(kind='line', marker='o', ax=ax2)
+    st.pyplot(fig2)
 
-st.pyplot(fig2)
+    st.write("----------------------------------------")
 
-st.write("---")
+    # 🔹 Insights
+    st.subheader("🧠 Insights")
 
-# ----------------------------
-# ML PREDICTION
-# ----------------------------
-st.subheader("🔮 Next Month Prediction")
+    total_spent = df['Amount'].sum()
+    top_category = category_data.idxmax()
 
-X = monthly.index.values.reshape(-1, 1)
-y = monthly.values
+    st.write(f"Total Spending: ₹{int(total_spent):,}")
+    st.write(f"Top Spending Category: {top_category}")
 
-model = LinearRegression()
-model.fit(X, y)
+    # 🔹 Financial Health Score
+    st.subheader("💡 Financial Health Score")
 
-next_month = [[monthly.index.max() + 1]]
-prediction = model.predict(next_month)
+    income = st.number_input("Enter your monthly income", value=50000)
 
-predicted_value = abs(int(prediction[0]))
+    if income > 0:
+        savings = income - total_spent
 
-st.success(f"Predicted next month spending: ₹{predicted_value}")
-
-st.write("---")
-
-# ----------------------------
-# FINANCIAL HEALTH SCORE
-# ----------------------------
-st.subheader("💡 Financial Health Score")
-
-total_spent = abs(df["Amount"].sum())
-
-if total_spent < 10000:
-    score = "Good ✅"
-elif total_spent < 25000:
-    score = "Moderate ⚠️"
-else:
-    score = "Poor ❌"
-
-st.info(f"Your financial health is: {score}")
-
-st.write("---")
-
-# ----------------------------
-# KEY INSIGHT
-# ----------------------------
-st.subheader("📌 Key Insight")
-
-top_category = category_sum.abs().idxmax()
-st.write(f"You spend the most on: **{top_category}**")
+        if savings > income * 0.3:
+            st.success("Good financial health 👍")
+        elif savings > 0:
+            st.warning("Average financial health ⚠️")
+        else:
+            st.error("You are overspending 🚨")
